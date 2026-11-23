@@ -1,0 +1,15 @@
+{% extends "root_email_template_new.html" %}
+
+{% block preheader %}Welcome to Godan CRM. Your workspace is ready to get started.{% endblock preheader %}
+
+{% block heading %}Welcome to Godan CRM{% endblock heading %}
+
+{% block content_body %}
+<p style="margin:0;">Your account has been created. You can now set up your organization and start managing your contacts, deals, projects, and customer relationships in one place.</p>
+{% endblock content_body %}
+
+{% block button_link %}
+{% if url %}
+<a class="btn-link" href="{{ url }}" style="display:inline-block;padding:15px 28px;background-color:#0F766E;color:#ffffff;text-decoration:none;border-radius:9px;font-size:15px;font-weight:700;line-height:1.2;">Open Godan CRM</a>
+{% endif %}
+{% endblock button_link %}

@@ -1,0 +1,19 @@
+{% extends "root_email_template_new.html" %}
+
+{% block preheader %}Your secure Godan CRM sign-in link. It expires in 10 minutes.{% endblock preheader %}
+
+{% block heading %}Sign in to Godan CRM{% endblock heading %}
+
+{% block content_body %}
+<p style="margin:0;">Use the secure button below to access your Godan CRM account. For your security, this link expires in 10 minutes and can only be used once.</p>
+{% endblock content_body %}
+
+{% block button_link %}
+<a class="btn-link" href="{{ magic_link_url }}" style="display:inline-block;padding:15px 28px;background-color:#0F766E;color:#ffffff;text-decoration:none;border-radius:9px;font-size:15px;font-weight:700;line-height:1.2;">
+  Sign in to Godan CRM
+</a>
+{% endblock button_link %}
+
+{% block extra_content %}
+<p style="font-size:13px;color:#667085;line-height:1.6;margin:0;">Didn't request this sign-in link? You can safely ignore this email. Your account remains secure.</p>
+{% endblock extra_content %}

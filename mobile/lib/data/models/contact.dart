@@ -1,0 +1,299 @@
+import '../api/schema.g.dart' as api;
+import 'custom_field_definition.dart';
+
+/// A contact: a person at an account.
+///
+/// Like `Account`, this sits beside the four-field `ContactLookup` that the
+/// deal form's picker has used all along. The lookup stays narrow on purpose.
+class Contact {
+  const Contact({
+    required this.id,
+    required this.firstName,
+    required this.lastName,
+    this.email,
+    this.phone,
+    this.phoneE164 = '',
+    this.organization,
+    this.title,
+    this.department,
+    this.doNotCall = false,
+    this.linkedinUrl,
+    this.addressLine,
+    this.city,
+    this.state,
+    this.postcode,
+    this.country,
+    this.description,
+    this.isActive = true,
+    this.accountId,
+    this.accountName,
+    this.linkedAccounts = const [],
+    this.assignedToNames = const [],
+    this.tagNames = const [],
+    this.createdAt,
+    this.canDelete = false,
+    this.source = '',
+    this.sourceDetail = '',
+    this.sourceRef = '',
+    this.customFields = const {},
+    this.customFieldDefinitions = const [],
+  });
+
+  final String id;
+  final String firstName;
+  final String lastName;
+  final String? email;
+  final String? phone;
+
+  /// The phone in international form, set by the server; empty when it
+  /// does not parse. WhatsApp needs it.
+  final String phoneE164;
+
+  final String? organization;
+  final String? title;
+  final String? department;
+
+  /// Set by the person, not by us. Surfaced on the detail screen because
+  /// calling someone who asked not to be called is the kind of mistake a CRM
+  /// exists to prevent.
+  final bool doNotCall;
+  final String? linkedinUrl;
+
+  final String? addressLine;
+  final String? city;
+  final String? state;
+  final String? postcode;
+  final String? country;
+
+  final String? description;
+  final bool isActive;
+
+  /// The primary account FK. Distinct from [linkedAccounts]: the web app has
+  /// both, and on this data the FK is frequently empty while the many-to-many
+  /// carries the real relationships. Showing only the FK would make a
+  /// well-linked contact look unattached.
+  final String? accountId;
+  final String? accountName;
+  final List<ContactAccountLink> linkedAccounts;
+
+  final List<String> assignedToNames;
+  final List<String> tagNames;
+
+  final DateTime? createdAt;
+
+  /// Whether the signed-in user may delete this contact: the server's own delete
+  /// rule (an admin, or whoever created it), sent as `can_delete` beside the
+  /// detail record. False wherever it was not sent, such as a list row, so
+  /// Delete is never offered on a guess.
+  final bool canDelete;
+
+  /// Where the person came from, copied from their lead at conversion. A
+  /// source key as the server sent it. None of the three is in [toPayload],
+  /// so an edit here never touches them.
+  final String source;
+  final String sourceDetail;
+  final String sourceRef;
+
+  final Map<String, dynamic> customFields;
+
+  /// The org's active contact fields, sent beside the detail record like
+  /// [canDelete]. Empty wherever they were not sent, such as a list row.
+  final List<CustomFieldDefinition> customFieldDefinitions;
+
+  String get fullName {
+    final name = '${firstName.trim()} ${lastName.trim()}'.trim();
+    return name.isEmpty ? (email ?? 'Unnamed contact') : name;
+  }
+
+  String get initials {
+    final first = firstName.trim();
+    final last = lastName.trim();
+    if (first.isEmpty && last.isEmpty) return '?';
+    final a = first.isNotEmpty ? first[0] : '';
+    final b = last.isNotEmpty ? last[0] : '';
+    return '$a$b'.toUpperCase();
+  }
+
+  /// The line under the name in a list row: their role and company if known.
+  String? get subtitle {
+    final parts = [
+      title,
+      accountName ?? organization,
+    ].where((v) => v != null && v.trim().isNotEmpty).join(' at ');
+    if (parts.isNotEmpty) return parts;
+    return email;
+  }
+
+  /// Reads a `Contact`, the list row and the detail's `contact_obj`.
+  factory Contact.fromJson(
+    Map<String, dynamic> json, {
+    bool canDelete = false,
+    List<CustomFieldDefinition> customFieldDefinitions = const [],
+  }) {
+    final w = api.Contact.fromJson(json);
+    final account = w.accountDetail;
+    final customFields = w.customFields;
+    return Contact(
+      id: w.id ?? '',
+      firstName: w.firstName ?? '',
+      lastName: w.lastName ?? '',
+      email: _str(w.email),
+      phone: _str(w.phone),
+      phoneE164: w.phoneE164 ?? '',
+      organization: _str(w.organization),
+      title: _str(w.title),
+      department: _str(w.department),
+      doNotCall: w.doNotCall ?? false,
+      linkedinUrl: _str(w.linkedinUrl),
+      addressLine: _str(w.addressLine),
+      city: _str(w.city),
+      state: _str(w.state),
+      postcode: _str(w.postcode),
+      country: _str(w.country),
+      description: _str(w.description),
+      isActive: w.isActive ?? true,
+      accountId: account != null ? account.id : _str(w.account),
+      accountName: account != null ? _str(account.name) : null,
+      linkedAccounts: ContactAccountLink.listFrom(
+        w.linkedAccounts?.map((a) => a.json).toList(),
+      ),
+      assignedToNames: [
+        for (final p in w.assignedTo ?? const <api.Profile>[])
+          if (p.userDetails?.name ?? p.userDetails?.email case final name?
+              when name.trim().isNotEmpty)
+            name,
+      ],
+      // `tags` is a list of ids here, not of tags.
+      tagNames: [
+        for (final tag in w.tags ?? const <String>[])
+          if (tag.trim().isNotEmpty) tag,
+      ],
+      createdAt: DateTime.tryParse(w.createdAt ?? ''),
+      canDelete: canDelete,
+      source: w.source ?? '',
+      sourceDetail: w.sourceDetail ?? '',
+      sourceRef: w.sourceRef ?? '',
+      customFields: customFields is Map
+          ? Map<String, dynamic>.from(customFields)
+          : const {},
+      customFieldDefinitions: customFieldDefinitions,
+    );
+  }
+
+  /// The payload the forms submit, matching `CreateContactSerializer.Meta`.
+  /// Fields outside that list are read-only on the server, so sending them
+  /// would be noise the serializer discards.
+  Map<String, dynamic> toPayload() {
+    return {
+      'first_name': firstName.trim(),
+      'last_name': lastName.trim(),
+      'email': _orNull(email),
+      'phone': _orNull(phone),
+      'organization': _orNull(organization),
+      'title': _orNull(title),
+      'department': _orNull(department),
+      'do_not_call': doNotCall,
+      'linkedin_url': _orNull(linkedinUrl),
+      'address_line': _orNull(addressLine),
+      'city': _orNull(city),
+      'state': _orNull(state),
+      'postcode': _orNull(postcode),
+      'country': _orNull(country),
+      'description': _orNull(description),
+      'account': _orNull(accountId),
+      'is_active': isActive,
+      'custom_fields': customFields,
+    };
+  }
+
+  Contact copyWith({
+    String? firstName,
+    String? lastName,
+    String? email,
+    String? phone,
+    String? organization,
+    String? title,
+    String? department,
+    bool? doNotCall,
+    String? linkedinUrl,
+    String? addressLine,
+    String? city,
+    String? state,
+    String? postcode,
+    String? country,
+    String? description,
+    bool? isActive,
+    String? accountId,
+    bool clearAccount = false,
+    Map<String, dynamic>? customFields,
+  }) {
+    return Contact(
+      id: id,
+      firstName: firstName ?? this.firstName,
+      lastName: lastName ?? this.lastName,
+      email: email ?? this.email,
+      phone: phone ?? this.phone,
+      phoneE164: phoneE164,
+      organization: organization ?? this.organization,
+      title: title ?? this.title,
+      department: department ?? this.department,
+      doNotCall: doNotCall ?? this.doNotCall,
+      linkedinUrl: linkedinUrl ?? this.linkedinUrl,
+      addressLine: addressLine ?? this.addressLine,
+      city: city ?? this.city,
+      state: state ?? this.state,
+      postcode: postcode ?? this.postcode,
+      country: country ?? this.country,
+      description: description ?? this.description,
+      isActive: isActive ?? this.isActive,
+      accountId: clearAccount ? null : (accountId ?? this.accountId),
+      accountName: clearAccount ? null : accountName,
+      linkedAccounts: linkedAccounts,
+      assignedToNames: assignedToNames,
+      tagNames: tagNames,
+      createdAt: createdAt,
+      canDelete: canDelete,
+      source: source,
+      sourceDetail: sourceDetail,
+      sourceRef: sourceRef,
+      customFields: customFields ?? this.customFields,
+      customFieldDefinitions: customFieldDefinitions,
+    );
+  }
+}
+
+/// An account this contact is attached to through the many-to-many.
+class ContactAccountLink {
+  const ContactAccountLink({required this.id, required this.name});
+
+  final String id;
+  final String name;
+
+  /// Reads `linked_accounts`, a list of `ContactAccountRef`s.
+  static List<ContactAccountLink> listFrom(dynamic raw) {
+    if (raw is! List) return const [];
+    ContactAccountLink link(api.ContactAccountRef ref) {
+      final name = ref.name?.trim() ?? '';
+      return ContactAccountLink(
+        id: ref.id ?? '',
+        name: name.isNotEmpty ? name : 'Unnamed account',
+      );
+    }
+
+    return [
+      for (final row in raw.whereType<Map<String, dynamic>>())
+        link(api.ContactAccountRef.fromJson(row)),
+    ];
+  }
+}
+
+String? _str(dynamic v) {
+  if (v == null) return null;
+  final s = v.toString().trim();
+  return s.isEmpty ? null : s;
+}
+
+String? _orNull(String? v) {
+  final s = v?.trim();
+  return (s == null || s.isEmpty) ? null : s;
+}

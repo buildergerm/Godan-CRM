@@ -1,0 +1,19 @@
+{% extends "root_email_template_new.html" %}
+
+{% block preheader %}{{ email_heading|default:"Your Godan CRM verification code" }}. It expires in 10 minutes.{% endblock preheader %}
+
+{% block heading %}{{ email_heading|default:"Your sign-in code" }}{% endblock heading %}
+
+{% block content_body %}
+<p style="margin:0;">{{ email_instruction|default:"Enter this one-time code on the Godan CRM sign-in screen to securely sign in. It expires in 10 minutes." }}</p>
+{% endblock content_body %}
+
+{% block button_link %}
+<div style="display:inline-block;padding:18px 28px;background-color:#F0FDF9;border:1px solid #99F6E4;border-radius:10px;font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;font-size:32px;letter-spacing:10px;font-weight:700;color:#115E59;">
+  {{ code }}
+</div>
+{% endblock button_link %}
+
+{% block extra_content %}
+<p style="font-size:13px;color:#667085;line-height:1.6;margin:0;">Didn't request this code? You can safely ignore this email. Never share this code with anyone.</p>
+{% endblock extra_content %}
